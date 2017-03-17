@@ -28,7 +28,8 @@
         "doctrine/annotations": "~1.0",
         "symfony/dependency-injection": "~3.2",
         "doctrine/cache": "~1.0",
-        "phpdocumentor/reflection-docblock": "~3.0"
+        "phpdocumentor/reflection-docblock": "~3.0",
+        "nikic/php-parser": "~2.0"
     },
     "conflict": {
         "symfony/dependency-injection": "<3.2",
