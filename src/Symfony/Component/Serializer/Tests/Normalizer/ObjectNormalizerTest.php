@@ -25,6 +25,7 @@ use Symfony\Component\Serializer\SerializerInterface;
 use Symfony\Component\Serializer\Normalizer\NormalizerInterface;
 use Symfony\Component\Serializer\Tests\Fixtures\CircularReferenceDummy;
 use Symfony\Component\Serializer\Tests\Fixtures\MaxDepthDummy;
+use Symfony\Component\Serializer\Tests\Fixtures\Sibling;
 use Symfony\Component\Serializer\Tests\Fixtures\SiblingHolder;
 use Symfony\Component\Serializer\Mapping\Loader\AnnotationLoader;
 use Symfony\Component\Serializer\Mapping\Factory\ClassMetadataFactory;
@@ -42,13 +43,24 @@ class ObjectNormalizerTest extends TestCase
     /**
      * @var SerializerInterface
      */
-    private $serializer;
+    protected $serializer;
 
     protected function setUp()
     {
         $this->serializer = $this->getMockBuilder(__NAMESPACE__.'\ObjectSerializerNormalizer')->getMock();
         $this->normalizer = new ObjectNormalizer();
         $this->normalizer->setSerializer($this->serializer);
+    }
+
+    protected function getNormalizerFor($class)
+    {
+        $classMetadataFactory = new ClassMetadataFactory(new AnnotationLoader(new AnnotationReader()));
+        $dumper = new NormalizerDumper($classMetadataFactory);
+
+        $normalizer = new ObjectNormalizer();
+        $normalizer->setSerializer($this->serializer);
+
+        return $normalizer;
     }
 
     public function testNormalize()
@@ -68,6 +80,7 @@ class ObjectNormalizerTest extends TestCase
             ->will($this->returnValue('string_object'))
         ;
 
+        $normalizer = $this->getNormalizerFor(ObjectDummy::class);
         $this->assertEquals(
             array(
                 'foo' => 'foo',
@@ -77,7 +90,7 @@ class ObjectNormalizerTest extends TestCase
                 'camelCase' => 'camelcase',
                 'object' => 'string_object',
             ),
-            $this->normalizer->normalize($obj, 'any')
+            $normalizer->normalize($obj, 'any')
         );
     }
 
@@ -205,9 +218,7 @@ class ObjectNormalizerTest extends TestCase
 
     public function testGroupsNormalize()
     {
-        $classMetadataFactory = new ClassMetadataFactory(new AnnotationLoader(new AnnotationReader()));
-        $this->normalizer = new ObjectNormalizer($classMetadataFactory);
-        $this->normalizer->setSerializer($this->serializer);
+        $normalizer = $this->getNormalizerFor(GroupDummy::class);
 
         $obj = new GroupDummy();
         $obj->setFoo('foo');
@@ -219,7 +230,7 @@ class ObjectNormalizerTest extends TestCase
 
         $this->assertEquals(array(
             'bar' => 'bar',
-        ), $this->normalizer->normalize($obj, null, array(ObjectNormalizer::GROUPS => array('c'))));
+        ), $normalizer->normalize($obj, null, array(ObjectNormalizer::GROUPS => array('c'))));
 
         $this->assertEquals(array(
             'symfony' => 'symfony',
@@ -228,7 +239,7 @@ class ObjectNormalizerTest extends TestCase
             'bar' => 'bar',
             'kevin' => 'kevin',
             'coopTilleuls' => 'coopTilleuls',
-        ), $this->normalizer->normalize($obj, null, array(ObjectNormalizer::GROUPS => array('a', 'c'))));
+        ), $normalizer->normalize($obj, null, array(ObjectNormalizer::GROUPS => array('a', 'c'))));
     }
 
     public function testGroupsDenormalize()
@@ -263,14 +274,12 @@ class ObjectNormalizerTest extends TestCase
 
     public function testNormalizeNoPropertyInGroup()
     {
-        $classMetadataFactory = new ClassMetadataFactory(new AnnotationLoader(new AnnotationReader()));
-        $this->normalizer = new ObjectNormalizer($classMetadataFactory);
-        $this->normalizer->setSerializer($this->serializer);
+        $normalizer = $this->getNormalizerFor(GroupDummy::class);
 
         $obj = new GroupDummy();
         $obj->setFoo('foo');
 
-        $this->assertEquals(array(), $this->normalizer->normalize($obj, null, array('groups' => array('notExist'))));
+        $this->assertEquals(array(), $normalizer->normalize($obj, null, array('groups' => array('notExist'))));
     }
 
     public function testGroupsNormalizeWithNameConverter()
@@ -464,8 +473,10 @@ class ObjectNormalizerTest extends TestCase
 
     public function testSiblingReference()
     {
-        $serializer = new Serializer(array($this->normalizer));
-        $this->normalizer->setSerializer($serializer);
+        $siblingHolderNormalizer = $this->getNormalizerFor(SiblingHolder::class);
+        $siblingNormalizer = $this->getNormalizerFor(Sibling::class);
+
+        $serializer = new Serializer(array($siblingHolderNormalizer, $siblingNormalizer));
 
         $siblingHolder = new SiblingHolder();
 
@@ -474,7 +485,7 @@ class ObjectNormalizerTest extends TestCase
             'sibling1' => array('coopTilleuls' => 'Les-Tilleuls.coop'),
             'sibling2' => array('coopTilleuls' => 'Les-Tilleuls.coop'),
         );
-        $this->assertEquals($expected, $this->normalizer->normalize($siblingHolder));
+        $this->assertEquals($expected, $serializer->normalize($siblingHolder));
     }
 
     public function testCircularReferenceHandler()
@@ -521,16 +532,15 @@ class ObjectNormalizerTest extends TestCase
             'bar' => null,
         );
 
-        $this->assertEquals($expected, $this->normalizer->normalize($objectDummy, null, array('not_serializable' => function () {
+        $normalizer = $this->getNormalizerFor(ObjectDummy::class);
+        $this->assertEquals($expected, $normalizer->normalize($objectDummy, null, array('not_serializable' => function () {
         })));
     }
 
     public function testMaxDepth()
     {
-        $classMetadataFactory = new ClassMetadataFactory(new AnnotationLoader(new AnnotationReader()));
-        $this->normalizer = new ObjectNormalizer($classMetadataFactory);
-        $serializer = new Serializer(array($this->normalizer));
-        $this->normalizer->setSerializer($serializer);
+        $normalizer = $this->getNormalizerFor(MaxDepthDummy::class);
+        $serializer = new Serializer(array($normalizer));
 
         $level1 = new MaxDepthDummy();
         $level1->foo = 'level1';
@@ -647,8 +657,9 @@ class ObjectNormalizerTest extends TestCase
 
     public function testAttributesContextNormalize()
     {
-        $normalizer = new ObjectNormalizer();
-        $serializer = new Serializer(array($normalizer));
+        $innerNormalizer = $this->getNormalizerFor(ObjectInner::class);
+        $dummyNormalizer = $this->getNormalizerFor(ObjectDummy::class);
+        $serializer = new Serializer(array($innerNormalizer, $dummyNormalizer));
 
         $objectInner = new ObjectInner();
         $objectInner->foo = 'innerFoo';

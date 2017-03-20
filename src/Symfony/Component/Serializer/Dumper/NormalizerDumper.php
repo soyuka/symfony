@@ -30,13 +30,15 @@ final class NormalizerDumper
     public function dump($class, array $context = array())
     {
         $reflectionClass = new \ReflectionClass($class);
-        if (!isset($context['name'])) {
-            $context['name'] = $reflectionClass->getShortName().'Normalizer';
+        if (!isset($context['class'])) {
+            $context['class'] = $reflectionClass->getShortName().'Normalizer';
         }
+
+        $namespaceLine = isset($context['namespace']) ? "\nnamespace {$context['namespace']};\n" : '';
 
         return <<<EOL
 <?php
-
+$namespaceLine
 use Symfony\Component\Serializer\Exception\CircularReferenceException;
 use Symfony\Component\Serializer\Normalizer\NormalizerAwareInterface;
 use Symfony\Component\Serializer\Normalizer\NormalizerAwareTrait;
@@ -47,7 +49,7 @@ use Symfony\Component\Serializer\Normalizer\ObjectNormalizer;
  * This class is generated.
  * Please do not update it manually.
  */
-class {$context['name']} implements NormalizerInterface, NormalizerAwareInterface
+class {$context['class']} implements NormalizerInterface, NormalizerAwareInterface
 {
     use NormalizerAwareTrait;
 
@@ -103,7 +105,7 @@ EOL;
 
             if (!isset(\$context['{$key}'])) {
                 \$context['{$key}'] = 1;
-            } elseif ({$maxDepth} !== \$context['{$key}']) {
+            } else {
                 ++\$context['{$key}'];
             }
 EOL;
@@ -133,7 +135,7 @@ EOL;
 
             if (null !== $maxDepth = $attributeMetadata->getMaxDepth()) {
                 $key = sprintf(ObjectNormalizer::DEPTH_KEY_PATTERN, $reflectionClass->name, $attributeMetadata->name);
-                $code .= " && (!isset(\$context['{$key}']) || {$maxDepth} !== \$context['{$key}'])";
+                $code .= " && (!isset(\$context['{$key}']) || {$maxDepth} >= \$context['{$key}'])";
             }
 
             $code .= ') {';
