@@ -11,6 +11,7 @@
 
 namespace Symfony\Component\Serializer\Dumper;
 
+use Symfony\Component\Serializer\NormalizerInterface;
 use Symfony\Component\Serializer\Normalizer\ObjectNormalizer;
 use Symfony\Component\Serializer\Mapping\Factory\ClassMetadataFactoryInterface;
 
@@ -28,12 +29,14 @@ final class NormalizerDumper
 
     public function dump($class, array $context = array())
     {
-        $class = new \ReflectionClass($class);
+        $reflectionClass = new \ReflectionClass($class);
         if (!isset($context['name'])) {
-            $context['name'] = $class->getShortName().'Normalizer';
+            $context['name'] = $reflectionClass->getShortName().'Normalizer';
         }
 
         return <<<EOL
+<?php
+
 use Symfony\Component\Serializer\Exception\CircularReferenceException;
 use Symfony\Component\Serializer\Normalizer\NormalizerAwareInterface;
 use Symfony\Component\Serializer\Normalizer\NormalizerAwareTrait;
@@ -48,34 +51,32 @@ class {$context['name']} implements NormalizerInterface, NormalizerAwareInterfac
 {
     use NormalizerAwareTrait;
 
-{$this->createNormalizeMethod($class)}
+{$this->generateNormalizeMethod($reflectionClass)}
 
-{$this->createSupportsNormalizationMethod($class)}
+{$this->generateSupportsNormalizationMethod($reflectionClass)}
 }
 EOL;
     }
 
     /**
-     * Create the normalization method.
+     * Generates the {@see NormalizerInterface::normalize} method.
      *
-     * @param string $class   Class to create normalization from
-     * @param array  $context Context of generation
+     * @param \ReflectionClass $reflectionClass
      *
-     * @return Stmt\ClassMethod
+     * @return string
      */
-    private function createNormalizeMethod(\ReflectionClass $class)
+    private function generateNormalizeMethod(\ReflectionClass $reflectionClass)
     {
         return <<<EOL
     public function normalize(\$object, \$format = null, array \$context = array())
     {
-{$this->generateNormalizeMethodInner($class)}
+{$this->generateNormalizeMethodInner($reflectionClass)}
     }
 EOL;
     }
 
-    private function generateNormalizeMethodInner(\ReflectionClass $class)
+    private function generateNormalizeMethodInner(\ReflectionClass $reflectionClass)
     {
-        $metadata = $this->classMetadataFactory->getMetadataFor($class->name);
         $code = <<<EOL
 
         \$objectHash = spl_object_hash(\$object);
@@ -90,13 +91,14 @@ EOL;
         \$output = array();
 EOL;
 
+        $attributesMetadata = $this->classMetadataFactory->getMetadataFor($reflectionClass->name)->getAttributesMetadata();
         $maxDepthCode = '';
-        foreach ($metadata->attributesMetadata as $attribute) {
-            if (null === $maxDepth = $attribute->getMaxDepth()) {
+        foreach ($attributesMetadata as $attributeMetadata) {
+            if (null === $maxDepth = $attributeMetadata->getMaxDepth()) {
                 continue;
             }
 
-            $key = sprintf(ObjectNormalizer::DEPTH_KEY_PATTERN, $class->name, $attribute->name);
+            $key = sprintf(ObjectNormalizer::DEPTH_KEY_PATTERN, $reflectionClass->name, $attributeMetadata->name);
             $maxDepthCode .= <<<EOL
 
             if (!isset(\$context['{$key}'])) {
@@ -116,38 +118,38 @@ EOL;
 EOL;
         }
 
-        foreach ($metadata->attributesMetadata as $attribute) {
+        foreach ($attributesMetadata as $attributeMetadata) {
             $code .= <<<EOL
 
         if ((null === \$groups
 EOL;
 
-            if ($attribute->groups) {
-                $code .= sprintf(" || count(array_intersect(\$groups, array('%s')))", implode("', '", $attribute->groups));
+            if ($attributeMetadata->groups) {
+                $code .= sprintf(" || count(array_intersect(\$groups, array('%s')))", implode("', '", $attributeMetadata->groups));
             }
             $code .= ')';
 
-            $code .= " && (!isset(\$context['attributes']) || isset(\$context['attributes']['{$attribute->name}']) || (is_array(\$context['attributes']) && in_array('{$attribute->name}', \$context['attributes'], true)))";
+            $code .= " && (!isset(\$context['attributes']) || isset(\$context['attributes']['{$attributeMetadata->name}']) || (is_array(\$context['attributes']) && in_array('{$attributeMetadata->name}', \$context['attributes'], true)))";
 
-            if (null !== $maxDepth = $attribute->getMaxDepth()) {
-                $key = sprintf(ObjectNormalizer::DEPTH_KEY_PATTERN, $class->name, $attribute->name);
+            if (null !== $maxDepth = $attributeMetadata->getMaxDepth()) {
+                $key = sprintf(ObjectNormalizer::DEPTH_KEY_PATTERN, $reflectionClass->name, $attributeMetadata->name);
                 $code .= " && (!isset(\$context['{$key}']) || {$maxDepth} !== \$context['{$key}'])";
             }
 
             $code .= ') {';
 
-            $value = $this->getAttributeValue($attribute->name, $class);
+            $value = $this->generateGetAttributeValueExpression($attributeMetadata->name, $reflectionClass);
             $code .= <<<EOL
 
             if (is_scalar({$value})) {
-                \$output['{$attribute->name}'] = {$value};
+                \$output['{$attributeMetadata->name}'] = {$value};
             } else {
                 \$subContext = \$context;
-                if (isset(\$context['attributes']['{$attribute->name}'])) {
-                    \$subContext['attributes'] = \$context['attributes']['{$attribute->name}'];
+                if (isset(\$context['attributes']['{$attributeMetadata->name}'])) {
+                    \$subContext['attributes'] = \$context['attributes']['{$attributeMetadata->name}'];
                 }
 
-                \$this->normalizer->normalize({$value}, \$format, \$context);
+                \$output['{$attributeMetadata->name}'] = \$this->normalizer->normalize({$value}, \$format, \$context);
             }
         }
 EOL;
@@ -162,35 +164,45 @@ EOL;
         return $code;
     }
 
-    private function getAttributeValue($property, \ReflectionClass $class)
+    /**
+     * Generates an expression to get the value of an attribute.
+     *
+     * @param string           $property
+     * @param \ReflectionClass $reflectionClass
+     *
+     * @return string
+     */
+    private function generateGetAttributeValueExpression($property, \ReflectionClass $reflectionClass)
     {
         $camelProp = $this->camelize($property);
 
         foreach ($methods = array('get'.$camelProp, lcfirst($camelProp), 'is'.$camelProp, 'has'.$camelProp) as $method) {
-            if ($class->hasMethod($method) && $class->getMethod($method)) {
+            if ($reflectionClass->hasMethod($method) && $reflectionClass->getMethod($method)) {
                 return sprintf('$object->%s()', $method);
             }
         }
 
-        if ($class->hasProperty($property) && $class->getProperty($property)->isPublic()) {
+        if ($reflectionClass->hasProperty($property) && $reflectionClass->getProperty($property)->isPublic()) {
             return sprintf('$object->%s', $property);
         }
 
-        if ($class->hasMethod('__get') && $class->getMethod('__get')) {
-            return sprintf("$object->__get('%s')", $property);
+        if ($reflectionClass->hasMethod('__get') && $reflectionClass->getMethod('__get')) {
+            return sprintf('$object->__get(\'%s\')', $property);
         }
 
-        throw new \LogicException(sprintf('Neither the property "%s" nor one of the methods "%s()", "__get()" exist and have public access in class "%s".', $property, implode('()", "', $methods), $class->name));
+        throw new \LogicException(sprintf('Neither the property "%s" nor one of the methods "%s()", "__get()" exist and have public access in class "%s".', $property, implode('()", "', $methods), $reflectionClass->name));
     }
 
     /**
-     * Create method to check if normalization is supported.
+     * Generates the {@see NormalizerInterface::supportsNormalization()} method.
      *
-     * @return Stmt\ClassMethod
+     * @param \ReflectionClass $reflectionClass
+     *
+     * @return string
      */
-    private function createSupportsNormalizationMethod($class)
+    private function generateSupportsNormalizationMethod(\ReflectionClass $reflectionClass)
     {
-        $instanceof = '\\'.$class->name;
+        $instanceof = '\\'.$reflectionClass->name;
 
         return <<<EOL
     public function supportsNormalization(\$data, \$format = null, array \$context = array())
