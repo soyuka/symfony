@@ -42,6 +42,7 @@ $namespaceLine
 use Symfony\Component\Serializer\Exception\CircularReferenceException;
 use Symfony\Component\Serializer\Normalizer\NormalizerAwareInterface;
 use Symfony\Component\Serializer\Normalizer\NormalizerAwareTrait;
+use Symfony\Component\Serializer\Normalizer\NormalizerDumperTrait;
 use Symfony\Component\Serializer\Normalizer\NormalizerInterface;
 use Symfony\Component\Serializer\Normalizer\ObjectNormalizer;
 
@@ -52,6 +53,7 @@ use Symfony\Component\Serializer\Normalizer\ObjectNormalizer;
 class {$context['class']} implements NormalizerInterface, NormalizerAwareInterface
 {
     use NormalizerAwareTrait;
+    use NormalizerDumperTrait;
 
 {$this->generateNormalizeMethod($reflectionClass)}
 
@@ -80,85 +82,30 @@ EOL;
     private function generateNormalizeMethodInner(\ReflectionClass $reflectionClass)
     {
         $code = <<<EOL
-
-        \$objectHash = spl_object_hash(\$object);
-        if (isset(\$context[ObjectNormalizer::CIRCULAR_REFERENCE_LIMIT][\$objectHash])) {
-            throw new CircularReferenceException('A circular reference has been detected (configured limit: 1).');
-        } else {
-            \$context[ObjectNormalizer::CIRCULAR_REFERENCE_LIMIT][\$objectHash] = 1;
-        }
-
-        \$groups = isset(\$context[ObjectNormalizer::GROUPS]) && is_array(\$context[ObjectNormalizer::GROUPS]) ? \$context[ObjectNormalizer::GROUPS] : null;
+        \$this->checkCircularReference(\$object, \$context);
 
         \$output = array();
+
 EOL;
 
         $attributesMetadata = $this->classMetadataFactory->getMetadataFor($reflectionClass->name)->getAttributesMetadata();
-        $maxDepthCode = '';
-        foreach ($attributesMetadata as $attributeMetadata) {
-            if (null === $maxDepth = $attributeMetadata->getMaxDepth()) {
-                continue;
-            }
-
-            $key = sprintf(ObjectNormalizer::DEPTH_KEY_PATTERN, $reflectionClass->name, $attributeMetadata->name);
-            $maxDepthCode .= <<<EOL
-
-            if (!isset(\$context['{$key}'])) {
-                \$context['{$key}'] = 1;
-            } else {
-                ++\$context['{$key}'];
-            }
-EOL;
-        }
-
-        if ($maxDepthCode) {
-            $code .= <<<EOL
-
-        if (isset(\$context[ObjectNormalizer::ENABLE_MAX_DEPTH])) {{$maxDepthCode}
-        }
-
-EOL;
-        }
 
         foreach ($attributesMetadata as $attributeMetadata) {
-            $code .= <<<EOL
 
-        if ((null === \$groups
-EOL;
-
-            if ($attributeMetadata->groups) {
-                $code .= sprintf(" || count(array_intersect(\$groups, array('%s')))", implode("', '", $attributeMetadata->groups));
-            }
-            $code .= ')';
-
-            $code .= " && (!isset(\$context['attributes']) || isset(\$context['attributes']['{$attributeMetadata->name}']) || (is_array(\$context['attributes']) && in_array('{$attributeMetadata->name}', \$context['attributes'], true)))";
-
-            if (null !== $maxDepth = $attributeMetadata->getMaxDepth()) {
-                $key = sprintf(ObjectNormalizer::DEPTH_KEY_PATTERN, $reflectionClass->name, $attributeMetadata->name);
-                $code .= " && (!isset(\$context['{$key}']) || {$maxDepth} >= \$context['{$key}'])";
-            }
-
-            $code .= ') {';
+            $groups = sprintf("array('%s')", implode("', '", $attributeMetadata->groups));
 
             $value = $this->generateGetAttributeValueExpression($attributeMetadata->name, $reflectionClass);
+
             $code .= <<<EOL
 
-            if (is_scalar({$value})) {
-                \$output['{$attributeMetadata->name}'] = {$value};
-            } else {
-                \$subContext = \$context;
-                if (isset(\$context['attributes']['{$attributeMetadata->name}'])) {
-                    \$subContext['attributes'] = \$context['attributes']['{$attributeMetadata->name}'];
-                }
-
-                \$output['{$attributeMetadata->name}'] = \$this->normalizer->normalize({$value}, \$format, \$context);
-            }
+        if (\$this->isAllowedAttribute('{$attributeMetadata->name}', $groups, \$context)) {
+            \$output['{$attributeMetadata->name}'] = \$this->getValue({$value}, '{$attributeMetadata->name}', \$format, \$context);
         }
+
 EOL;
         }
 
         $code .= <<<EOL
-
 
         return \$output;
 EOL;
