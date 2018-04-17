@@ -51,6 +51,11 @@ class Dummy extends ParentDummy
      */
     public $B;
 
+    /**
+     * @var CustomDateTime
+     */
+    public $customDate;
+
     public static function getStatic()
     {
     }

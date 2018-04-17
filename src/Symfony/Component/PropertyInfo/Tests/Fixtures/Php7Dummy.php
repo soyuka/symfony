@@ -27,4 +27,12 @@ class Php7Dummy
     public function addBaz(string $baz)
     {
     }
+
+    public function getCustomDate(): CustomDateTime
+    {
+    }
+
+    public function setCustomDate($date)
+    {
+    }
 }

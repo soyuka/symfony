@@ -71,6 +71,7 @@ class PhpDocExtractorTest extends TestCase
             array('donotexist', null, null, null),
             array('staticGetter', null, null, null),
             array('staticSetter', null, null, null),
+            array('customDate', array(new Type(Type::BUILTIN_TYPE_OBJECT, false, 'Symfony\Component\PropertyInfo\Tests\Fixtures\CustomDateTime')), null, null),
         );
     }
 
