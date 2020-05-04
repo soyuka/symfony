@@ -1,0 +1,33 @@
+// interface EventSourceResponseInterface extends ResponseInterface {
+//   // public function cancel();
+// }
+
+// interface EventSourceResponseStreamInterface extends ResponseStreamInterface
+// {
+//     public function key(): EventSourceResponseInterface;
+//     //
+//     // public function current(): ChunkInterface;
+// }
+
+// class EventSourceResponse implements ResponseInterface {
+//     use ResponseTrait;
+//
+//     /**
+//      * {@inheritdoc}
+//      */
+//     public function getInfo(string $type = null)
+//     {
+//         if (!$info = $this->finalInfo) {
+//             $info = $this->info;
+//             $info['url'] = implode('', $info['url']);
+//             unset($info['size_body'], $info['request_header']);
+//
+//             if (null === $this->buffer) {
+//                 $this->finalInfo = $info;
+//             }
+//         }
+//
+//         return null !== $type ? $info[$type] ?? null : $info;
+//     }
+// }
+
