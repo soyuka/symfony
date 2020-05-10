@@ -73,11 +73,11 @@ final class EventSource implements HttpClientInterface
                     if ('' === $line) {
                         if (!$bomRemoved) {
                             // replace BOM if it exists
-                            $buffer = preg_replace('/\x{FEFF}/u', '', $buffer);
+                            $buffer = preg_replace('/^\x{FEFF}/u', '', $buffer);
                             $bomRemoved = true;
                         }
 
-                        if (!$buffer || 0 === strpos($buffer, ':')) {
+                        if ('' === $buffer || 0 === strpos($buffer, ':')) {
                             $buffer = '';
                             continue;
                         }
