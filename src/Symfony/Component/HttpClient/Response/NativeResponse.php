@@ -26,7 +26,8 @@ use Symfony\Contracts\HttpClient\ResponseInterface;
  */
 final class NativeResponse implements ResponseInterface
 {
-    use ResponseTrait;
+    use CommonResponseTrait;
+    use TransportResponseTrait;
 
     private $context;
     private $url;
@@ -300,7 +301,7 @@ final class NativeResponse implements ResponseInterface
             return;
         }
 
-        // Create empty activity lists to tell ResponseTrait::stream() we still have pending requests
+        // Create empty activity lists to tell TransportResponseTrait::stream() we still have pending requests
         foreach ($responses as $i => $response) {
             if (null === $response->remaining && null !== $response->buffer) {
                 $multi->handlesActivity[$i] = [];
