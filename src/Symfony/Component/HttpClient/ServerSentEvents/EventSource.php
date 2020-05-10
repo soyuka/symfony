@@ -18,7 +18,7 @@ final class EventSource implements HttpClientInterface
 
     public function __construct(HttpClientInterface $client = null, array $defaultOptions = [])
     {
-        $this->client = $client ?: HttpClient::create($defaultOptions);
+        $this->client = $client ?? HttpClient::create($defaultOptions);
     }
 
     public function stream($responses, float $timeout = null): ResponseStreamInterface
@@ -72,7 +72,8 @@ final class EventSource implements HttpClientInterface
                     // end-of-line, parse full buffer
                     if ('' === $line) {
                         if (!$bomRemoved) {
-                            $buffer = str_replace("\xEF\xBB\xBF", '', $buffer);
+                            // replace BOM if it exists
+                            $buffer = preg_replace('/\x{FEFF}/u', '', $buffer);
                             $bomRemoved = true;
                         }
 
@@ -104,6 +105,7 @@ final class EventSource implements HttpClientInterface
                 $content = $buffer;
             }
 
+						usleep($this->reconnectionTime * 1000);
             $response = $this->request($response->getInfo('http_method'), $response->getInfo('url'));
         }
     }
