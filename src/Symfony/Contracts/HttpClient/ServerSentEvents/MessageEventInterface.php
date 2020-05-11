@@ -18,11 +18,11 @@ namespace Symfony\Contracts\HttpClient\ServerSentEvents;
  */
 interface MessageEventInterface
 {
-    public function getId(): ?string;
+    public function getId(): string;
 
     public function getType(): string;
 
     public function getData(): string;
 
-    public function getRetry(): ?int;
+    public function getRetry(): int;
 }

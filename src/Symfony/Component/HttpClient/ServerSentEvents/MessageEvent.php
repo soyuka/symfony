@@ -13,7 +13,7 @@ final class MessageEvent extends DataChunk implements ChunkInterface, MessageEve
     private $type;
     private $retry;
 
-    public function __construct(string $data = '', string $id = null, string $type = 'message', int $retry = null)
+    public function __construct(string $data = '', string $id = '', string $type = 'message', int $retry = 10)
     {
         $this->data = $data;
         $this->id = $id;
@@ -52,7 +52,7 @@ final class MessageEvent extends DataChunk implements ChunkInterface, MessageEve
         return new self($data, $id, $type, $retry);
     }
 
-    public function getId(): ?string
+    public function getId(): string
     {
         return $this->id;
     }
@@ -67,7 +67,7 @@ final class MessageEvent extends DataChunk implements ChunkInterface, MessageEve
         return $this->data;
     }
 
-    public function getRetry(): ?int
+    public function getRetry(): int
     {
         return $this->retry;
     }
