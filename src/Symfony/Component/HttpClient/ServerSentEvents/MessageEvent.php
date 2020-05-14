@@ -25,7 +25,8 @@ final class MessageEvent extends DataChunk implements ChunkInterface, MessageEve
     {
         preg_match_all('/^([a-z]*)\:? ?(.*)/m', $rawData, $matches, PREG_SET_ORDER);
         $data = '';
-        $retry = $id = null;
+        $id = null;
+        $retry = 0;
         $type = 'message';
 
         foreach ($matches as $match) {
@@ -40,7 +41,7 @@ final class MessageEvent extends DataChunk implements ChunkInterface, MessageEve
                     $data .= $match[2]."\n";
                     break;
                 case 'retry':
-                    $retry = ctype_digit($match[2]) ? (int) $match[2] : null;
+                    $retry = ctype_digit($match[2]) ? (int) $match[2] : 0;
                     break;
             }
         }
