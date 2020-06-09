@@ -24,5 +24,5 @@ interface MessageEventInterface
 
     public function getData(): string;
 
-    public function getRetry(): int;
+    public function getRetry(): float;
 }

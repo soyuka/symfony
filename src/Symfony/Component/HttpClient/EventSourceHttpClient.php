@@ -34,8 +34,7 @@ final class EventSourceHttpClient implements HttpClientInterface
             'headers' => [
                 'Accept' => 'text/event-stream',
                 'Cache-Control' => 'no-cache',
-            ],
-            'timeout' => $this->reconnectionTime
+            ]
         ], true));
     }
 
@@ -68,17 +67,16 @@ final class EventSourceHttpClient implements HttpClientInterface
             } catch (TransportExceptionInterface $e) {
                 $state->lastError ?? $state->lastError = microtime(true);
 
-                var_dump(microtime(true) - $state->lastError, $state->reconnectionTime);
-                // if (null === $state->buffer || ($isTimeout && microtime(true) - $state->lastError < $state->reconnectionTime)) {
-                //     yield $chunk;
-                // } else {
+                if (null === $state->buffer || ($isTimeout && microtime(true) - $state->lastError < $state->reconnectionTime)) {
+                    yield $chunk;
+                } else {
                     $options['headers']['Last-Event-ID'] = $state->lastEventId;
                     $state->buffer = '';
                     $state->lastError = microtime(true);
                     $context->getResponse()->cancel();
                     $context->replaceRequest($method, $url, $options);
                     $context->pause($state->reconnectionTime);
-                // }
+                }
 
                 return;
             }

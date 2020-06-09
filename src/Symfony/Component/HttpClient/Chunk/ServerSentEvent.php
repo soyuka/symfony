@@ -34,7 +34,7 @@ final class ServerSentEvent extends DataChunk implements ChunkInterface, Message
                     $retry = substr($line, $i);
 
                     if ('' !== $retry && \strlen($retry) === strspn($retry, '0123456789')) {
-                        $this->retry = $retry / 1000;
+                        $this->retry = $retry / 1000.0;
                     }
                     break;
             }
@@ -61,7 +61,7 @@ final class ServerSentEvent extends DataChunk implements ChunkInterface, Message
         return $this->data;
     }
 
-    public function getRetry(): int
+    public function getRetry(): float
     {
         return $this->retry;
     }
