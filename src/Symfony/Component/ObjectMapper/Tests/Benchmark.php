@@ -9,21 +9,37 @@ use Symfony\Component\ObjectMapper\ObjectMapper;
 use Symfony\Component\ObjectMapper\Tests\Fixtures\C;
 use Symfony\Component\ObjectMapper\Tests\Fixtures\D;
 
+/**
+ * @AfterMethods({"after"})
+ */
 class Benchmark
 {
+    private AutoMapper $automapper;
+    private ObjectMapper $objectMapper;
+
+    public function after()
+    {
+        unset($this->automapper);
+        unset($this->objectMapper);
+    }
+
     public function benchAutoMapper(): void
     {
+        if (!isset($this->automapper)) {
+            $this->automapper = AutoMapper::create(cacheDirectory: './cache');
+        }
 
-        $automapper = AutoMapper::create(new Configuration(reloadStrategy: FileReloadStrategy::NEVER), cacheDirectory: './cache');
         $source = new C('a', 'b');
-        $automapper->map($source, D::class);
+        $this->automapper->map($source, D::class);
     }
 
     public function benchObjectMapper(): void
     {
+        if (!isset($this->objectMapper)) {
+            $this->objectMapper = new ObjectMapper();
+        }
 
-        $automapper = new ObjectMapper();
         $source = new C('a', 'b');
-        $automapper->map($source, D::class);
+        $this->objectMapper->map($source, D::class);
     }
 }
