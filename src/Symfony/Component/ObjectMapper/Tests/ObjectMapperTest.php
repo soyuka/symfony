@@ -27,6 +27,7 @@ use Symfony\Component\ObjectMapper\Tests\Fixtures\DeeperRecursion\RelationDto;
 use Symfony\Component\ObjectMapper\Tests\Fixtures\Flatten\TargetUser;
 use Symfony\Component\ObjectMapper\Tests\Fixtures\Flatten\User;
 use Symfony\Component\ObjectMapper\Tests\Fixtures\Flatten\UserProfile;
+use Symfony\Component\ObjectMapper\Tests\Fixtures\HydrateObject\SourceOnly;
 use Symfony\Component\ObjectMapper\Tests\Fixtures\InstanceCallback\A as InstanceCallbackA;
 use Symfony\Component\ObjectMapper\Tests\Fixtures\InstanceCallback\B as InstanceCallbackB;
 use Symfony\Component\ObjectMapper\Tests\Fixtures\MapStruct\AToBMapper;
@@ -189,5 +190,29 @@ final class ObjectMapperTest extends TestCase
                 return $this->factories[$id];
             }
         };
+    }
+
+    public function testSourceOnly(): void
+    {
+        $a = new \stdClass();
+        $a->name = 'test';
+        $mapper = new ObjectMapper();
+        $mapped = $mapper->map($a, SourceOnly::class);
+        $this->assertInstanceOf(SourceOnly::class, $mapped);
+        $this->assertSame('test', $mapped->mappedName);
+
+        $a = new class {
+            public function __get(string $key): string
+            {
+                return match ($key) {
+                    'name' => 'test',
+                    default => throw new \LogicException($key),
+                };
+            }
+        };
+
+        $mapped = $mapper->map($a, SourceOnly::class);
+        $this->assertInstanceOf(SourceOnly::class, $mapped);
+        $this->assertSame('test', $mapped->mappedName);
     }
 }

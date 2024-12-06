@@ -105,10 +105,12 @@ final class ObjectMapper implements ObjectMapperInterface
             $ctorArguments[$parameterName] = $parameter->isDefaultValueAvailable() ? $parameter->getDefaultValue() : null;
         }
 
-        try {
-            $refl = new \ReflectionClass($source);
-        } catch (\ReflectionException $e) {
-            throw new MappingException($e->getMessage(), $e->getCode(), $e);
+        $readMetadataFrom = $source;
+        $refl = $this->getSourceReflectionClass($source, $targetRefl);
+
+        // When source contains no metadata, we read metadata on the target instead
+        if ($refl === $targetRefl) {
+            $readMetadataFrom = $mappedTarget;
         }
 
         $mapToProperties = [];
@@ -118,9 +120,14 @@ final class ObjectMapper implements ObjectMapperInterface
             }
 
             $propertyName = $property->getName();
-            $mappings = $this->metadataFactory->create($source, $propertyName);
+            $mappings = $this->metadataFactory->create($readMetadataFrom, $propertyName);
             foreach ($mappings as $mapping) {
-                $value = $this->getRawValue($source, $propertyName);
+                $sourcePropertyName = $propertyName;
+                if (!$refl->hasProperty($propertyName) || !isset($source->$propertyName)) {
+                    $sourcePropertyName = $mapping->source;
+                }
+
+                $value = $this->getRawValue($source, $sourcePropertyName);
                 if (($if = $mapping->if) && ($fn = $this->getCallable($if, $this->conditionCallableLocator)) && !$this->call($fn, $value, $source)) {
                     continue;
                 }
@@ -288,5 +295,30 @@ final class ObjectMapper implements ObjectMapperInterface
         }
 
         return null;
+    }
+
+    /**
+     * @return \ReflectionClass<object|T>
+     */
+    private function getSourceReflectionClass(object $source, \ReflectionClass $targetRefl): \ReflectionClass
+    {
+        $metadata = $this->metadataFactory->create($source);
+        try {
+            $refl = new \ReflectionClass($source);
+        } catch (\ReflectionException $e) {
+            throw new MappingException($e->getMessage(), $e->getCode(), $e);
+        }
+
+        if ($metadata) {
+            return $refl;
+        }
+
+        foreach ($refl->getProperties() as $property) {
+            if ($this->metadataFactory->create($source, $property)) {
+                return $refl;
+            }
+        }
+
+        return $targetRefl;
     }
 }
