@@ -53,6 +53,8 @@ use Symfony\Component\ObjectMapper\Tests\Fixtures\ServiceLocator\A as ServiceLoc
 use Symfony\Component\ObjectMapper\Tests\Fixtures\ServiceLocator\B as ServiceLocatorB;
 use Symfony\Component\ObjectMapper\Tests\Fixtures\ServiceLocator\ConditionCallable;
 use Symfony\Component\ObjectMapper\Tests\Fixtures\ServiceLocator\TransformCallable;
+use Symfony\Component\ObjectMapper\Tests\Fixtures\Underscore\Dto as UnderscoreDto;
+use Symfony\Component\ObjectMapper\Tests\Fixtures\Underscore\Entity;
 use Symfony\Component\PropertyAccess\PropertyAccess;
 
 final class ObjectMapperTest extends TestCase
@@ -302,5 +304,16 @@ final class ObjectMapperTest extends TestCase
         $this->assertEquals('test', $c->bar);
         $this->assertEquals('donotmap', $c->foo);
         $this->assertEquals('foo', $c->doesNotExistInTargetB);
+    }
+
+    public function testMapToSnakeCase()
+    {
+        $u = new UnderscoreDto();
+        $u->camelCasedProperty = 'test';
+
+        $mapper = new ObjectMapper();
+        $b = $mapper->map($u, Entity::class);
+        $this->assertInstanceOf(Entity::class, $b);
+        $this->assertEquals('test', $b->snake_case_property);
     }
 }
