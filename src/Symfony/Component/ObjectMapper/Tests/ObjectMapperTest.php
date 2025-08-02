@@ -25,6 +25,8 @@ use Symfony\Component\ObjectMapper\Tests\Fixtures\A;
 use Symfony\Component\ObjectMapper\Tests\Fixtures\B;
 use Symfony\Component\ObjectMapper\Tests\Fixtures\C;
 use Symfony\Component\ObjectMapper\Tests\Fixtures\ClassWithoutTarget;
+use Symfony\Component\ObjectMapper\Tests\Fixtures\ConstructorCalled\SourceConstructor;
+use Symfony\Component\ObjectMapper\Tests\Fixtures\ConstructorCalled\TargetWithConstructor;
 use Symfony\Component\ObjectMapper\Tests\Fixtures\D;
 use Symfony\Component\ObjectMapper\Tests\Fixtures\DeeperRecursion\Recursive;
 use Symfony\Component\ObjectMapper\Tests\Fixtures\DeeperRecursion\RecursiveDto;
@@ -446,5 +448,12 @@ final class ObjectMapperTest extends TestCase
         $f->email = $p->email;
 
         yield [$p, $f];
+    }
+
+    public function testMapDoesCallConstructor()
+    {
+        $mapper = new ObjectMapper();
+        $mapped = $mapper->map(new SourceConstructor, TargetWithConstructor::class);
+        $this->assertTrue($mapped->initialized);
     }
 }
