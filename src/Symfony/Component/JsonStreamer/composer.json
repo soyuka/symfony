@@ -26,7 +26,10 @@
     "require-dev": {
         "phpstan/phpdoc-parser": "^1.0",
         "symfony/dependency-injection": "^7.2|^8.0",
-        "symfony/http-kernel": "^7.2|^8.0"
+        "symfony/http-kernel": "^7.2|^8.0",
+        "phpbench/phpbench": "84.x-dev",
+        "symfony/serializer": "8.0.x-dev",
+        "symfony/property-access": "8.0.x-dev"
     },
     "autoload": {
         "psr-4": { "Symfony\\Component\\JsonStreamer\\": "" },
