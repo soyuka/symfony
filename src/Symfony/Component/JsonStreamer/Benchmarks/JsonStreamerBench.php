@@ -14,6 +14,8 @@ namespace Symfony\Component\JsonStreamer\Benchmarks;
 use PhpBench\Attributes as Bench;
 use Symfony\Component\JsonStreamer\JsonStreamWriter;
 use Symfony\Component\Serializer\Encoder\JsonEncoder;
+use Symfony\Component\Serializer\Normalizer\ArrayDenormalizer;
+use Symfony\Component\Serializer\Normalizer\DateTimeNormalizer;
 use Symfony\Component\Serializer\Normalizer\ObjectNormalizer;
 use Symfony\Component\Serializer\Serializer;
 use Symfony\Component\Serializer\SerializerInterface;
@@ -32,7 +34,7 @@ class JsonStreamerBench
         $this->jsonStreamWriter = JsonStreamWriter::create();
 
         $encoders = [new JsonEncoder()];
-        $normalizers = [new ObjectNormalizer()];
+        $normalizers = [new ObjectNormalizer(), new DateTimeNormalizer(), new ArrayDenormalizer()];
         $this->serializer = new Serializer($normalizers, $encoders);
 
         $this->dataObject = new DataObject(
@@ -51,14 +53,14 @@ class JsonStreamerBench
     #[Bench\Iterations(5)]
     public function benchJsonStreamWriter(): void
     {
-        $v = (string) $this->jsonStreamWriter->write($this->dataObject, $this->dataObjectType);
+        (string) $this->jsonStreamWriter->write($this->dataObject, $this->dataObjectType);
     }
 
     #[Bench\Revs(100)]
     #[Bench\Iterations(5)]
     public function benchSymfonySerializer(): void
     {
-        $v = $this->serializer->serialize($this->dataObject, 'json');
+        $this->serializer->serialize($this->dataObject, 'json');
     }
 }
 
