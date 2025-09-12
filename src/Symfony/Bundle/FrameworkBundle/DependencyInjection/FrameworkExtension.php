@@ -17,6 +17,7 @@ use Doctrine\ORM\Mapping\Entity;
 use Doctrine\ORM\Mapping\MappedSuperclass;
 use Http\Client\HttpAsyncClient;
 use Http\Client\HttpClient;
+use Symfony\Component\ObjectMapper\ObjectMapperInterface;
 use phpDocumentor\Reflection\DocBlockFactoryInterface;
 use phpDocumentor\Reflection\Types\ContextFactory;
 use PhpParser\Parser;
@@ -665,12 +666,8 @@ class FrameworkExtension extends Extension
             $loader->load('mime_type.php');
         }
 
-        if (ContainerBuilder::willBeAvailable('symfony/object-mapper', ObjectMapperInterface::class, ['symfony/framework-bundle'])) {
-            $loader->load('object_mapper.php');
-            $container->registerForAutoconfiguration(TransformCallableInterface::class)
-                ->addTag('object_mapper.transform_callable');
-            $container->registerForAutoconfiguration(ConditionCallableInterface::class)
-                ->addTag('object_mapper.condition_callable');
+        if ($this->readConfigEnabled('object_mapper', $container, $config['object_mapper'])) {
+            $this->registerObjectMapperConfiguration($container, $loader);
         }
 
         $container->registerForAutoconfiguration(PackageInterface::class)
@@ -3520,6 +3517,20 @@ class FrameworkExtension extends Extension
                 $container->registerAliasForArgument($sanitizerId, HtmlSanitizerInterface::class, $sanitizerName);
             }
         }
+    }
+
+    private function registerObjectMapperConfiguration(ContainerBuilder $container, PhpFileLoader $loader): void
+    {
+        $loader->load('object_mapper.php');
+        $container->setParameter('.object_mapper.cache_dir', '%kernel.cache_dir%/object_mapper');
+
+        if ($container->getParameter('kernel.debug')) {
+            $container->setAlias(ObjectMapperInterface::class, 'object_mapper');
+
+            return;
+        }
+
+        $container->setAlias(ObjectMapperInterface::class, 'object_mapper.cached');
     }
 
     public function getXsdValidationBasePath(): string|false
