@@ -154,9 +154,7 @@ use Symfony\Component\Notifier\Notifier;
 use Symfony\Component\Notifier\Recipient\Recipient;
 use Symfony\Component\Notifier\TexterInterface;
 use Symfony\Component\Notifier\Transport\TransportFactoryInterface as NotifierTransportFactoryInterface;
-use Symfony\Component\ObjectMapper\ConditionCallableInterface;
-use Symfony\Component\ObjectMapper\ObjectMapperInterface;
-use Symfony\Component\ObjectMapper\TransformCallableInterface;
+use Symfony\Component\ObjectMapper\Attribute\Map;
 use Symfony\Component\Process\Messenger\RunProcessMessageHandler;
 use Symfony\Component\PropertyAccess\PropertyAccessor;
 use Symfony\Component\PropertyInfo\Extractor\ConstructorArgumentTypeExtractorInterface;
@@ -3529,6 +3527,23 @@ class FrameworkExtension extends Extension
 
             return;
         }
+
+        $container->registerAttributeForAutoconfiguration(Map::class, function (ChildDefinition $definition, Map $attribute, \ReflectionClass|\ReflectionMethod|\ReflectionProperty $reflector) {
+            if (!$reflector instanceof \ReflectionClass) {
+                return;
+            }
+
+            $cl = $reflector->getName();
+            $source = $attribute->source ?? $cl;
+            $target = $attribute->target ?? $cl;
+
+            if ($source !== $target) {
+                $definition->addTag('object_mapper.attribute_metadata', [
+                    'source' => $source,
+                    'target' => $target,
+                ]);
+            }
+        });
 
         $container->setAlias(ObjectMapperInterface::class, 'object_mapper.cached');
     }

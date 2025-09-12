@@ -12,6 +12,7 @@
 namespace Symfony\Component\DependencyInjection\Loader\Configurator;
 
 use Symfony\Component\ObjectMapper\CachedObjectMapper;
+use Symfony\Component\ObjectMapper\Internal\CacheWarmer\CachedObjectMapperCacheWarmer;
 use Symfony\Component\ObjectMapper\Metadata\ObjectMapperMetadataFactoryInterface;
 use Symfony\Component\ObjectMapper\Metadata\ReflectionObjectMapperMetadataFactory;
 use Symfony\Component\ObjectMapper\ObjectMapper;
@@ -38,5 +39,8 @@ return static function (ContainerConfigurator $container) {
                 tagged_locator('object_mapper.transform_callable'),
                 tagged_locator('object_mapper.condition_callable'),
             ])
+
+        ->set('object_mapper.cached.cache_warmer', CachedObjectMapperCacheWarmer::class)
+            ->args([null, 'object_mapper.cached'])
     ;
 };
