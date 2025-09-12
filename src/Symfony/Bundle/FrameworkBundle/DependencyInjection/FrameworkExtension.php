@@ -17,6 +17,7 @@ use Doctrine\ORM\Mapping\Entity;
 use Doctrine\ORM\Mapping\MappedSuperclass;
 use Http\Client\HttpAsyncClient;
 use Http\Client\HttpClient;
+use Symfony\Component\ObjectMapper\ObjectMapperInterface;
 use phpDocumentor\Reflection\DocBlockFactoryInterface;
 use phpDocumentor\Reflection\Types\ContextFactory;
 use PhpParser\Parser;
@@ -153,9 +154,7 @@ use Symfony\Component\Notifier\Notifier;
 use Symfony\Component\Notifier\Recipient\Recipient;
 use Symfony\Component\Notifier\TexterInterface;
 use Symfony\Component\Notifier\Transport\TransportFactoryInterface as NotifierTransportFactoryInterface;
-use Symfony\Component\ObjectMapper\ConditionCallableInterface;
-use Symfony\Component\ObjectMapper\ObjectMapperInterface;
-use Symfony\Component\ObjectMapper\TransformCallableInterface;
+use Symfony\Component\ObjectMapper\Attribute\Map;
 use Symfony\Component\Process\Messenger\RunProcessMessageHandler;
 use Symfony\Component\PropertyAccess\PropertyAccessor;
 use Symfony\Component\PropertyInfo\Extractor\ConstructorArgumentTypeExtractorInterface;
@@ -665,12 +664,8 @@ class FrameworkExtension extends Extension
             $loader->load('mime_type.php');
         }
 
-        if (ContainerBuilder::willBeAvailable('symfony/object-mapper', ObjectMapperInterface::class, ['symfony/framework-bundle'])) {
-            $loader->load('object_mapper.php');
-            $container->registerForAutoconfiguration(TransformCallableInterface::class)
-                ->addTag('object_mapper.transform_callable');
-            $container->registerForAutoconfiguration(ConditionCallableInterface::class)
-                ->addTag('object_mapper.condition_callable');
+        if ($this->readConfigEnabled('object_mapper', $container, $config['object_mapper'])) {
+            $this->registerObjectMapperConfiguration($container, $loader);
         }
 
         $container->registerForAutoconfiguration(PackageInterface::class)
@@ -3520,6 +3515,37 @@ class FrameworkExtension extends Extension
                 $container->registerAliasForArgument($sanitizerId, HtmlSanitizerInterface::class, $sanitizerName);
             }
         }
+    }
+
+    private function registerObjectMapperConfiguration(ContainerBuilder $container, PhpFileLoader $loader): void
+    {
+        $loader->load('object_mapper.php');
+        $container->setParameter('.object_mapper.cache_dir', '%kernel.cache_dir%/object_mapper');
+
+        if ($container->getParameter('kernel.debug')) {
+            $container->setAlias(ObjectMapperInterface::class, 'object_mapper');
+
+            return;
+        }
+
+        $container->registerAttributeForAutoconfiguration(Map::class, function (ChildDefinition $definition, Map $attribute, \ReflectionClass|\ReflectionMethod|\ReflectionProperty $reflector) {
+            if (!$reflector instanceof \ReflectionClass) {
+                return;
+            }
+
+            $cl = $reflector->getName();
+            $source = $attribute->source ?? $cl;
+            $target = $attribute->target ?? $cl;
+
+            if ($source !== $target) {
+                $definition->addTag('object_mapper.attribute_metadata', [
+                    'source' => $source,
+                    'target' => $target,
+                ]);
+            }
+        });
+
+        $container->setAlias(ObjectMapperInterface::class, 'object_mapper.cached');
     }
 
     public function getXsdValidationBasePath(): string|false
