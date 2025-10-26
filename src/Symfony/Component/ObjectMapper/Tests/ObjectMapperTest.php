@@ -79,6 +79,7 @@ use Symfony\Component\ObjectMapper\Tests\Fixtures\TransformCollection\TransformC
 use Symfony\Component\ObjectMapper\Tests\Fixtures\TransformCollection\TransformCollectionC;
 use Symfony\Component\ObjectMapper\Tests\Fixtures\TransformCollection\TransformCollectionD;
 use Symfony\Component\PropertyAccess\PropertyAccess;
+use Symfony\Component\VarExporter\LazyObjectInterface;
 
 final class ObjectMapperTest extends TestCase
 {
@@ -562,5 +563,31 @@ final class ObjectMapperTest extends TestCase
         $transformed = $mapper->map($u, TransformCollectionB::class);
 
         $this->assertEquals([new TransformCollectionD('a'), new TransformCollectionD('b')], $transformed->foo);
+    }
+
+    public function testDoNotInitializeProxiesOption()
+    {
+        $source = new class() implements LazyObjectInterface {
+            private bool $initialized = false;
+
+            public function initializeLazyObject(): object
+            {
+                $this->initialized = true;
+                throw new \RuntimeException('Proxy should not be initialized');
+            }
+
+            public function isLazyObjectInitialized(bool $partial = false): bool
+            {
+                return $this->initialized;
+            }
+
+            public function resetLazyObject(): bool
+            {
+                return false;
+            }
+        };
+
+        $mapper = new ObjectMapper(initializeProxies: false);
+        dump($mapper->map($source, 'stdClass'));
     }
 }

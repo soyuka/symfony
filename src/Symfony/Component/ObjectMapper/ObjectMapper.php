@@ -40,6 +40,7 @@ final class ObjectMapper implements ObjectMapperInterface, ObjectMapperAwareInte
         private readonly ?ContainerInterface $transformCallableLocator = null,
         private readonly ?ContainerInterface $conditionCallableLocator = null,
         private ?ObjectMapperInterface $objectMapper = null,
+        private readonly bool $initializeProxies = true,
     ) {
     }
 
@@ -339,10 +340,12 @@ final class ObjectMapper implements ObjectMapperInterface, ObjectMapperAwareInte
             throw new MappingException($e->getMessage(), $e->getCode(), $e);
         }
 
-        if ($source instanceof LazyObjectInterface) {
-            $source->initializeLazyObject();
-        } elseif (\PHP_VERSION_ID >= 80400 && $refl->isUninitializedLazyObject($source)) {
-            $refl->initializeLazyObject($source);
+        if ($this->initializeProxies) {
+            if ($source instanceof LazyObjectInterface) {
+                $source->initializeLazyObject();
+            } elseif (\PHP_VERSION_ID >= 80400 && $refl->isUninitializedLazyObject($source)) {
+                $refl->initializeLazyObject($source);
+            }
         }
 
         if ($metadata) {
