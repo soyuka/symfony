@@ -62,6 +62,12 @@ use Symfony\Component\ObjectMapper\Tests\Fixtures\MultipleTargetProperty\C as Mu
 use Symfony\Component\ObjectMapper\Tests\Fixtures\MultipleTargets\A as MultipleTargetsA;
 use Symfony\Component\ObjectMapper\Tests\Fixtures\MultipleTargets\C as MultipleTargetsC;
 use Symfony\Component\ObjectMapper\Tests\Fixtures\MyProxy;
+use Symfony\Component\ObjectMapper\Tests\Fixtures\NestedObjectMapping\AddressDto;
+use Symfony\Component\ObjectMapper\Tests\Fixtures\NestedObjectMapping\BankDataDto;
+use Symfony\Component\ObjectMapper\Tests\Fixtures\NestedObjectMapping\BankDataResource;
+use Symfony\Component\ObjectMapper\Tests\Fixtures\NestedObjectMapping\BankDto;
+use Symfony\Component\ObjectMapper\Tests\Fixtures\NestedObjectMapping\PersonDto;
+use Symfony\Component\ObjectMapper\Tests\Fixtures\NestedObjectMapping\PersonResource;
 use Symfony\Component\ObjectMapper\Tests\Fixtures\PartialInput\FinalInput;
 use Symfony\Component\ObjectMapper\Tests\Fixtures\PartialInput\PartialInput;
 use Symfony\Component\ObjectMapper\Tests\Fixtures\PromotedConstructor\Source as PromotedConstructorSource;
@@ -582,5 +588,26 @@ final class ObjectMapperTest extends TestCase
         $this->assertTrue($refl->isUninitializedLazyObject($target->user));
         $this->assertSame('Test User', $target->user->name);
         $this->assertFalse($refl->isUninitializedLazyObject($target->user));
+    }
+
+    public function testNestedObjectMappingWithAttributes()
+    {
+        $bankDto = new BankDto();
+        $bankDto->bic = 'ABCDEFGH';
+        $bankDto->code = '12345678';
+        $bankDto->name = 'Test Bank';
+
+        $bankDataDto = new BankDataDto();
+        $bankDataDto->iban = 'DE89370400440532013000';
+        $bankDataDto->bank = $bankDto;
+
+        $mapper = new ObjectMapper();
+        $result = $mapper->map($bankDataDto, BankDataResource::class);
+
+        $this->assertInstanceOf(BankDataResource::class, $result);
+        $this->assertSame('DE89370400440532013000', $result->iban);
+        $this->assertSame('ABCDEFGH', $result->bic);
+        $this->assertSame('12345678', $result->bankCode);
+        $this->assertSame('Test Bank', $result->bankName);
     }
 }
