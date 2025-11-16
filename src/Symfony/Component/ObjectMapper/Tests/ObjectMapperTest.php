@@ -76,6 +76,10 @@ use Symfony\Component\ObjectMapper\Tests\Fixtures\PromotedConstructorWithMetadat
 use Symfony\Component\ObjectMapper\Tests\Fixtures\PromotedConstructorWithMetadata\Target as PromotedConstructorWithMetadataTarget;
 use Symfony\Component\ObjectMapper\Tests\Fixtures\Recursion\AB;
 use Symfony\Component\ObjectMapper\Tests\Fixtures\Recursion\Dto;
+use Symfony\Component\ObjectMapper\Tests\Fixtures\ServiceLoadedValue\LoadedValueService;
+use Symfony\Component\ObjectMapper\Tests\Fixtures\ServiceLoadedValue\ServiceLoadedValueTransformer;
+use Symfony\Component\ObjectMapper\Tests\Fixtures\ServiceLoadedValue\ValueToMap;
+use Symfony\Component\ObjectMapper\Tests\Fixtures\ServiceLoadedValue\ValueToMapRelation;
 use Symfony\Component\ObjectMapper\Tests\Fixtures\ServiceLocator\A as ServiceLocatorA;
 use Symfony\Component\ObjectMapper\Tests\Fixtures\ServiceLocator\B as ServiceLocatorB;
 use Symfony\Component\ObjectMapper\Tests\Fixtures\ServiceLocator\ConditionCallable;
@@ -609,5 +613,27 @@ final class ObjectMapperTest extends TestCase
         $this->assertSame('ABCDEFGH', $result->bic);
         $this->assertSame('12345678', $result->bankCode);
         $this->assertSame('Test Bank', $result->bankName);
+    }
+
+    public function testSkipLazyGhostWithClassTransform()
+    {
+        $service = new LoadedValueService();
+        $service->load();
+
+        $mapper = new ObjectMapper(
+            transformCallableLocator: $this->getServiceLocator([ServiceLoadedValueTransformer::class => new ServiceLoadedValueTransformer($service)])
+        );
+
+        $value = new ValueToMap();
+        $value->relation = new ValueToMapRelation('test');
+
+        $result = $mapper->map($value);
+        if (\PHP_VERSION_ID >= 80400) {
+            $refl = new \ReflectionClass($result->relation);
+            $this->assertFalse($refl->isUninitializedLazyObject($result->relation));
+        }
+
+        $this->assertSame($result->relation, $service->get());
+        $this->assertSame($result->relation->name, 'loaded');
     }
 }
