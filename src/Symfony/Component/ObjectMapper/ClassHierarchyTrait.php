@@ -17,17 +17,37 @@ namespace Symfony\Component\ObjectMapper;
 trait ClassHierarchyTrait
 {
     /**
+     * @var array<class-string, \ReflectionProperty[]>
+     */
+    private array $propertiesCache = [];
+
+    /**
+     * @var array<string, ?\ReflectionProperty>
+     */
+    private array $propertyCache = [];
+
+    /**
+     * @var array<class-string, \ReflectionClass>
+     */
+    private array $reflectionClassCache = [];
+
+    /**
      * Returns all properties from a class including private properties from parent classes.
      *
      * @return \ReflectionProperty[]
      */
     private function getAllProperties(\ReflectionClass $refl): array
     {
+        if (isset($this->propertiesCache[$refl->name])) {
+            return $this->propertiesCache[$refl->name];
+        }
+
         $properties = [];
         $seenNames = [];
+        $current = $refl;
 
         do {
-            foreach ($refl->getProperties() as $property) {
+            foreach ($current->getProperties() as $property) {
                 $name = $property->getName();
                 if (isset($seenNames[$name])) {
                     continue;
@@ -35,9 +55,9 @@ trait ClassHierarchyTrait
                 $seenNames[$name] = true;
                 $properties[] = $property;
             }
-        } while ($refl = $refl->getParentClass());
+        } while ($current = $current->getParentClass());
 
-        return $properties;
+        return $this->propertiesCache[$refl->name] = $properties;
     }
 
     /**
@@ -45,12 +65,28 @@ trait ClassHierarchyTrait
      */
     private function getPropertyFromHierarchy(\ReflectionClass $refl, string $propertyName): ?\ReflectionProperty
     {
-        do {
-            if ($refl->hasProperty($propertyName)) {
-                return $refl->getProperty($propertyName);
-            }
-        } while ($refl = $refl->getParentClass());
+        $key = $refl->name.'::'.$propertyName;
+        if (\array_key_exists($key, $this->propertyCache)) {
+            return $this->propertyCache[$key];
+        }
 
-        return null;
+        $current = $refl;
+        do {
+            if ($current->hasProperty($propertyName)) {
+                return $this->propertyCache[$key] = $current->getProperty($propertyName);
+            }
+        } while ($current = $current->getParentClass());
+
+        return $this->propertyCache[$key] = null;
+    }
+
+    /**
+     * @return \ReflectionClass<object>
+     */
+    private function getReflectionClass(object|string $objectOrClass): \ReflectionClass
+    {
+        $class = \is_object($objectOrClass) ? $objectOrClass::class : $objectOrClass;
+
+        return $this->reflectionClassCache[$class] ??= new \ReflectionClass($class);
     }
 }

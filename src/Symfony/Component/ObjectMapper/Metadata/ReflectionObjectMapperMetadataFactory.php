@@ -24,7 +24,6 @@ final class ReflectionObjectMapperMetadataFactory implements ObjectMapperMetadat
 {
     use ClassHierarchyTrait;
 
-    private array $reflectionClassCache = [];
     private array $attributesCache = [];
 
     public function create(object $object, ?string $property = null, array $context = []): array
@@ -36,7 +35,7 @@ final class ReflectionObjectMapperMetadataFactory implements ObjectMapperMetadat
                 return $this->attributesCache[$key];
             }
 
-            $refl = $this->reflectionClassCache[$object::class] ??= new \ReflectionClass($object);
+            $refl = $this->getReflectionClass($object);
             $target = $refl;
             if ($property && null === $target = $this->getPropertyFromHierarchy($refl, $property)) {
                 return $this->attributesCache[$key] = [];

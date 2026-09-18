@@ -77,7 +77,7 @@ final class ObjectMapper implements ObjectMapperInterface, ObjectMapperAwareInte
         }
 
         try {
-            $targetRefl = new \ReflectionClass($target);
+            $targetRefl = $this->getReflectionClass($target);
         } catch (\ReflectionException $e) {
             throw new MappingException($e->getMessage(), $e->getCode(), $e);
         }
@@ -170,7 +170,7 @@ final class ObjectMapper implements ObjectMapperInterface, ObjectMapperAwareInte
                 }
 
                 if (!$this->isReadable($source, $sourcePropertyName)
-                    && $this->getPropertyFromHierarchy(new \ReflectionClass($source), $sourcePropertyName)
+                    && $this->getPropertyFromHierarchy($this->getReflectionClass($source), $sourcePropertyName)
                 ) {
                     continue;
                 }
@@ -271,14 +271,14 @@ final class ObjectMapper implements ObjectMapperInterface, ObjectMapperAwareInte
         if (!property_exists($source, $propertyName)) {
             // only a private property declared by a parent class is invisible to property_exists();
             // like any other non-public property, it can only be read through magic __get()
-            if ($this->getPropertyFromHierarchy($refl ??= new \ReflectionClass($source), $propertyName)) {
+            if ($this->getPropertyFromHierarchy($refl ??= $this->getReflectionClass($source), $propertyName)) {
                 return method_exists($source, '__get');
             }
 
             return isset($source->{$propertyName});
         }
 
-        $refl ??= new \ReflectionClass($source);
+        $refl ??= $this->getReflectionClass($source);
 
         if (!$refl->hasProperty($propertyName)) {
             // ReflectionClass doesn't see dynamic properties: property_exists() matched one, and those are always public
@@ -307,7 +307,7 @@ final class ObjectMapper implements ObjectMapperInterface, ObjectMapperAwareInte
         }
 
         if (!property_exists($source, $propertyName) && !isset($source->{$propertyName})
-            && !$this->getPropertyFromHierarchy(new \ReflectionClass($source), $propertyName)
+            && !$this->getPropertyFromHierarchy($this->getReflectionClass($source), $propertyName)
         ) {
             throw new NoSuchPropertyException(\sprintf('The property "%s" does not exist on "%s".', $propertyName, get_debug_type($source)));
         }
@@ -364,7 +364,7 @@ final class ObjectMapper implements ObjectMapperInterface, ObjectMapperAwareInte
                     return $value;
                 }
 
-                $refl = new \ReflectionClass($mapTo->target);
+                $refl = $this->getReflectionClass($mapTo->target);
                 $mapper = $this->objectMapper ?? $this;
 
                 return $refl->newLazyGhost(function ($target) use ($mapper, $value, $objectMap) {
@@ -477,7 +477,7 @@ final class ObjectMapper implements ObjectMapperInterface, ObjectMapperAwareInte
             return $metadata;
         }
 
-        if (!$property = $this->getPropertyFromHierarchy(new \ReflectionClass($target), $targetPropertyName)) {
+        if (!$property = $this->getPropertyFromHierarchy($this->getReflectionClass($target), $targetPropertyName)) {
             return $metadata;
         }
 
@@ -554,7 +554,7 @@ final class ObjectMapper implements ObjectMapperInterface, ObjectMapperAwareInte
     {
         $metadata = $this->metadataFactory->create($source);
         try {
-            $refl = new \ReflectionClass($source);
+            $refl = $this->getReflectionClass($source);
         } catch (\ReflectionException $e) {
             throw new MappingException($e->getMessage(), $e->getCode(), $e);
         }
